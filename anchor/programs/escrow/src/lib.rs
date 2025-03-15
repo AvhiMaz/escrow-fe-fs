@@ -16,4 +16,10 @@ pub mod escrow {
         ctx.accounts.deposit(amount)?;
         Ok(())
     }
+
+    pub fn take_offer(ctx: Context<Take>) -> Result<()> {
+        ctx.accounts.deposit()?;
+        ctx.accounts.withdraw_and_close_vault()?;
+        Ok(())
+    }
 }

@@ -118,9 +118,12 @@ describe("escrow", () => {
       provider.connection,
       takerAtaB
     );
+
+    console.log(makerInitialBalance);
+    console.log(takerInitialBalance);
   });
 
-  it("Makes escrow offer", async () => {
+  it("Makes escrow", async () => {
     await program.methods
       .makeOffer(seed, depositAmount)
       .accounts({
