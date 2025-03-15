@@ -11,9 +11,9 @@ declare_id!("coUnmi3oBUtwtd9fjeAvSsJssXh5A5xyPbhpewyzRVF");
 pub mod escrow {
     use super::*;
 
-    pub fn make(ctx: Context<Make>, seed: u64, receive_amount: u64, deposit: u64) -> Result<()> {
-        ctx.accounts.init_escrow(seed, receive_amount, &ctx.bumps)?;
-        ctx.accounts.deposit(deposit)?;
+    pub fn make_offer(ctx: Context<Make>, seed: u64, amount: u64) -> Result<()> {
+        ctx.accounts.init_escrow(seed, amount, &ctx.bumps)?;
+        ctx.accounts.deposit(amount)?;
         Ok(())
     }
 }

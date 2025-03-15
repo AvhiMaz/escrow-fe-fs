@@ -14,16 +14,16 @@ export type Escrow = {
   },
   "instructions": [
     {
-      "name": "make",
+      "name": "makeOffer",
       "discriminator": [
-        138,
-        227,
-        232,
-        77,
-        223,
-        166,
-        96,
-        197
+        214,
+        98,
+        97,
+        35,
+        59,
+        12,
+        44,
+        178
       ],
       "accounts": [
         {
@@ -249,8 +249,7 @@ export type Escrow = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "tokenProgram"
         },
         {
           "name": "associatedTokenProgram",
@@ -263,11 +262,7 @@ export type Escrow = {
           "type": "u64"
         },
         {
-          "name": "receiveAmount",
-          "type": "u64"
-        },
-        {
-          "name": "deposit",
+          "name": "amount",
           "type": "u64"
         }
       ]

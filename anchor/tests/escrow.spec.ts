@@ -1,76 +1,158 @@
-import * as anchor from '@coral-xyz/anchor'
-import { Program } from '@coral-xyz/anchor'
-import { Keypair } from '@solana/web3.js'
-import { Escrow } from '../target/types/escrow'
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  TOKEN_PROGRAM_ID,
+  createMint,
+  createAccount,
+  mintTo,
+  getAccount,
+} from "@solana/spl-token";
+import { Escrow } from "../target/types/escrow";
 
-describe('escrow', () => {
-  // Configure the client to use the local cluster.
-  const provider = anchor.AnchorProvider.env()
-  anchor.setProvider(provider)
-  const payer = provider.wallet as anchor.Wallet
+describe("escrow", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+  const program = anchor.workspace.Escrow as Program<Escrow>;
 
-  const program = anchor.workspace.Escrow as Program<Escrow>
+  let mintA: anchor.web3.PublicKey;
+  let mintB: anchor.web3.PublicKey;
+  let makerAtaA: anchor.web3.PublicKey;
+  let makerAtaB: anchor.web3.PublicKey;
+  let takerAtaA: anchor.web3.PublicKey;
+  let takerAtaB: anchor.web3.PublicKey;
+  let vault: anchor.web3.PublicKey;
+  let escrow: anchor.web3.PublicKey;
 
-  const escrowKeypair = Keypair.generate()
+  const maker = Keypair.generate();
+  const taker = Keypair.generate();
+  const seed = new anchor.BN(1);
+  const depositAmount = new anchor.BN(50);
 
-  it('Initialize Escrow', async () => {
+  beforeAll(async () => {
+    const makerAirdrop = await provider.connection.requestAirdrop(
+      maker.publicKey,
+      10 * LAMPORTS_PER_SOL
+    );
+    const takerAirdrop = await provider.connection.requestAirdrop(
+      taker.publicKey,
+      10 * LAMPORTS_PER_SOL
+    );
+
+    const latestBlockhash = await provider.connection.getLatestBlockhash();
+    await provider.connection.confirmTransaction({
+      signature: makerAirdrop,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    });
+    await provider.connection.confirmTransaction({
+      signature: takerAirdrop,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    });
+
+    mintA = await createMint(
+      provider.connection,
+      maker,
+      maker.publicKey,
+      null,
+      6
+    );
+    mintB = await createMint(
+      provider.connection,
+      taker,
+      taker.publicKey,
+      null,
+      6
+    );
+    console.log("Mint A:", mintA.toString());
+    console.log("Mint B:", mintB.toString());
+
+    makerAtaA = await createAccount(
+      provider.connection,
+      maker,
+      mintA,
+      maker.publicKey
+    );
+    makerAtaB = await createAccount(
+      provider.connection,
+      maker,
+      mintB,
+      maker.publicKey
+    );
+    takerAtaA = await createAccount(
+      provider.connection,
+      taker,
+      mintA,
+      taker.publicKey
+    );
+    takerAtaB = await createAccount(
+      provider.connection,
+      taker,
+      mintB,
+      taker.publicKey
+    );
+
+    await mintTo(provider.connection, maker, mintA, makerAtaA, maker, 1000);
+    await mintTo(provider.connection, taker, mintB, takerAtaB, taker, 1000);
+
+    [escrow] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("escrow"),
+        maker.publicKey.toBuffer(),
+        seed.toBuffer("le", 8),
+      ],
+      program.programId
+    );
+
+    vault = anchor.utils.token.associatedAddress({
+      mint: mintA,
+      owner: escrow,
+    });
+
+    const makerInitialBalance = await getAccount(
+      provider.connection,
+      makerAtaA
+    );
+    const takerInitialBalance = await getAccount(
+      provider.connection,
+      takerAtaB
+    );
+  });
+
+  it("Makes escrow offer", async () => {
     await program.methods
-      .initialize()
+      .makeOffer(seed, depositAmount)
       .accounts({
-        escrow: escrowKeypair.publicKey,
-        payer: payer.publicKey,
+        maker: maker.publicKey,
+        mintA,
+        mintB,
+        tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .signers([escrowKeypair])
-      .rpc()
+      .signers([maker])
+      .rpc();
 
-    const currentCount = await program.account.escrow.fetch(escrowKeypair.publicKey)
+    const escrowAccount = await program.account.escrow.fetch(escrow);
+    console.log("Escrow account data:", {
+      maker: escrowAccount.maker.toString(),
+      mintA: escrowAccount.mintA.toString(),
+      mintB: escrowAccount.mintB.toString(),
+      receiveAmount: escrowAccount.receiveAmount.toString(),
+    });
 
-    expect(currentCount.count).toEqual(0)
-  })
+    expect(escrowAccount.maker.equals(maker.publicKey));
+    expect(escrowAccount.mintA.equals(mintA));
+    expect(escrowAccount.mintB.equals(mintB));
+    expect(escrowAccount.receiveAmount.eq(depositAmount));
 
-  it('Increment Escrow', async () => {
-    await program.methods.increment().accounts({ escrow: escrowKeypair.publicKey }).rpc()
+    const vaultAccount = await getAccount(provider.connection, vault);
+    console.log("Vault balance:", vaultAccount.amount.toString());
+    expect(vaultAccount.amount === BigInt(depositAmount.toString()));
 
-    const currentCount = await program.account.escrow.fetch(escrowKeypair.publicKey)
-
-    expect(currentCount.count).toEqual(1)
-  })
-
-  it('Increment Escrow Again', async () => {
-    await program.methods.increment().accounts({ escrow: escrowKeypair.publicKey }).rpc()
-
-    const currentCount = await program.account.escrow.fetch(escrowKeypair.publicKey)
-
-    expect(currentCount.count).toEqual(2)
-  })
-
-  it('Decrement Escrow', async () => {
-    await program.methods.decrement().accounts({ escrow: escrowKeypair.publicKey }).rpc()
-
-    const currentCount = await program.account.escrow.fetch(escrowKeypair.publicKey)
-
-    expect(currentCount.count).toEqual(1)
-  })
-
-  it('Set escrow value', async () => {
-    await program.methods.set(42).accounts({ escrow: escrowKeypair.publicKey }).rpc()
-
-    const currentCount = await program.account.escrow.fetch(escrowKeypair.publicKey)
-
-    expect(currentCount.count).toEqual(42)
-  })
-
-  it('Set close the escrow account', async () => {
-    await program.methods
-      .close()
-      .accounts({
-        payer: payer.publicKey,
-        escrow: escrowKeypair.publicKey,
-      })
-      .rpc()
-
-    // The account should no longer exist, returning null.
-    const userAccount = await program.account.escrow.fetchNullable(escrowKeypair.publicKey)
-    expect(userAccount).toBeNull()
-  })
-})
+    const makerBalanceAfterDeposit = await getAccount(
+      provider.connection,
+      makerAtaA
+    );
+    console.log(makerBalanceAfterDeposit.amount.toString());
+  });
+});

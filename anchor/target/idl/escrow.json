@@ -8,16 +8,16 @@
   },
   "instructions": [
     {
-      "name": "make",
+      "name": "make_offer",
       "discriminator": [
-        138,
-        227,
-        232,
-        77,
-        223,
-        166,
-        96,
-        197
+        214,
+        98,
+        97,
+        35,
+        59,
+        12,
+        44,
+        178
       ],
       "accounts": [
         {
@@ -243,8 +243,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "token_program"
         },
         {
           "name": "associated_token_program",
@@ -257,11 +256,7 @@
           "type": "u64"
         },
         {
-          "name": "receive_amount",
-          "type": "u64"
-        },
-        {
-          "name": "deposit",
+          "name": "amount",
           "type": "u64"
         }
       ]
